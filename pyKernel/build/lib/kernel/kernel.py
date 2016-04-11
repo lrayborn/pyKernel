@@ -41,7 +41,6 @@ def toa_flux(ctrl, pert, kernels, cloud_mask_correction=0.):
     once normalized by surface temperature change.
 
     Currently implemented for CAM4 aquaplanet output.'''
-    # squeeze models to get rid of time dim - kept getting an error with time dimension
     
     #   The kernels are not on the same grid as the CAM4 output
     lev_kernel = kernels.pfull
@@ -119,15 +118,23 @@ def toa_flux(ctrl, pert, kernels, cloud_mask_correction=0.):
 
     #  Compute cloud radiative forcing
         #   first, the all-sky TOA radiation fields
-    DeltaOLR = pert.FLNT - ctrl.FLNT
-    DeltaASR = pert.FSNT - ctrl.FSNT
+    #try:
+    #    DeltaOLR = pert.FLNT - ctrl.FLNT
+    #    DeltaASR = pert.FSNT - ctrl.FSNT
+    #        #  and the clear-sky diagnostics
+    #    DeltaOLRclr = pert.FLNTC - ctrl.FLNTC
+    #    DeltaASRclr = pert.FSNTC - ctrl.FSNTC
+    #    #  Cloud radiative forcing is just the difference between these:
+    #except:
+    DeltaOLR = pert.FLNT.data - ctrl.FLNT.data 
+    DeltaASR = pert.FSNT.data  - ctrl.FSNT.data 
         #  and the clear-sky diagnostics
-    DeltaOLRclr = pert.FLNTC - ctrl.FLNTC
-    DeltaASRclr = pert.FSNTC - ctrl.FSNTC
-    #  Cloud radiative forcing is just the difference between these:
-    DeltaOLRcld = DeltaOLR - DeltaOLRclr
-    DeltaASRcld = DeltaASR - DeltaASRclr
-    
+    DeltaOLRclr = pert.FLNTC.data  - ctrl.FLNTC.data 
+    DeltaASRclr = pert.FSNTC.data  - ctrl.FSNTC.data 
+        #  Cloud radiative forcing is just the difference between these:
+    DeltaOLRcld = DeltaOLR  - DeltaOLRclr 
+    DeltaASRcld = DeltaASR  - DeltaASRclr
+
     #  Soden et al. 2008 show how to compute the cloud feedback accurately 
     #  accounting for cloud masking --  see their equation (25)
 
@@ -181,7 +188,6 @@ def local_feedback(ctrl, pert, kernels, cloud_mask_correction=0.):
     Inputs are netCDF4 dataset handles for model climatology files.
 
     Currently implemented for CAM4 aquaplanet output.'''
-    # squeeze models to get rid of time dim - kept getting an error with time dimension
 
     flux = toa_flux(ctrl, pert, kernels, cloud_mask_correction)
     #  Surface temperature anomalies
@@ -199,7 +205,6 @@ def global_feedback(ctrl, pert, kernels, cloud_mask_correction=0.):
     Inputs are netCDF4 dataset handles for model climatology files.
 
     Currently implemented for CAM4 aquaplanet output.'''
-    # squeeze models to get rid of time dim - kept getting an error with time dimension
     
     flux = toa_flux(ctrl, pert, kernels, cloud_mask_correction)
     #  Surface temperature anomalies
@@ -210,12 +215,13 @@ def global_feedback(ctrl, pert, kernels, cloud_mask_correction=0.):
 
 
 def global_mean_feedback(ctrl, pert, kernels, cloud_mask_correction=0.):
-    # squeeze models to get rid of time dim - kept getting an error with time dimension
     
     fb_global = global_feedback(ctrl, pert, kernels, cloud_mask_correction)
     coslat = np.cos(np.deg2rad(fb_global.lat))
-    #fb_global_mean = {}
-    #for name in fb_global.data_vars:
-    #    fb_global_mean[name] = np.average(fb_global[name], weights=coslat)    
-    #return fb_global_mean
-    return fb_global.apply(np.average, weights=coslat)
+    fb_global_mean = {}
+    for name in fb_global.data_vars:
+        # account for nan's when averaging feedbacks
+        indices = ~np.isnan(fb_global[name])
+        fb_global_mean[name] = np.average(fb_global[name][indices], weights=coslat[indices])    
+    return fb_global_mean
+    #return fb_global.apply(np.average, weights=coslat)

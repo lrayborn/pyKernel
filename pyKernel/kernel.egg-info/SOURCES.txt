@@ -1,4 +1,5 @@
 setup.py
+kernel/CESM.py
 kernel/__init__.py
 kernel/kernel.py
 kernel.egg-info/PKG-INFO
